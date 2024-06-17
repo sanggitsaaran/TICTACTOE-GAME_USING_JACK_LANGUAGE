@@ -1,0 +1,460 @@
+class Board {
+	
+	field Array boardArray; // 0 vacant, 1 naught, 2 cross
+	field int boardX,boardY,boardSize,thickness,cellSize;
+	field int winThickness; // thickness of the line drawn in case of win!
+	field boolean isWin, isDraw;
+	field int winMode; // 0 - row, 1-col, 2 - topdiag, 3 - bottom diag
+	field int winRow,winCol;// winning row or column
+	field int freeCellCount; // how many cells are free?
+	field int dimension; // Board dimension (3, 4, or 5)
+	field Array moveStack; // stack to store moves for undo functionality
+	field int top; // top of the stack
+	field Piece piece; // Piece object for drawing the moves
+	field int pieceWidth, pieceHeight; // Width and height of the piece
+
+	
+	constructor Board new(int x,int y,int dim) {		
+		let boardX = x;
+		let boardY = y;
+		let dimension = dim;
+		let moveStack = Array.new(50); // Assuming a maximum of 100 moves
+		let top = -1;
+		let thickness = 4;
+		let winThickness = 4;
+		if (dim = 3) {
+           let boardSize = 120;
+           let cellSize = boardSize / 3;
+           let boardArray = Array.new(9);
+        }
+		if (dim = 4) {
+           let boardSize = 160;
+           let cellSize = boardSize / 4;
+           let boardArray = Array.new(16);
+        }
+		if (dim = 5) {
+           let boardSize = 200;
+           let cellSize = boardSize / 5;
+           let boardArray = Array.new(25);
+        }
+		// Adjust boardX and boardY to ensure the board fits within screen dimensions
+		do clearBoard();
+		do drawBoardBorders();
+		return this;
+	}
+	
+	method void dispose() {
+		do Screen.setColor(false);
+		do Screen.drawRectangle(boardX,boardY,boardX+boardSize, boardY+boardSize);
+		do Screen.setColor(true);
+		do Memory.deAlloc(boardArray);
+		do Memory.deAlloc(moveStack);
+		return;
+	}
+	
+
+	method void clearBoard() {
+		var int i;
+		if (dimension=3) {
+			let freeCellCount = 9;
+			let isWin = false;
+			let isDraw  = false;
+			while(i<9) { 
+				let boardArray[i] = 0;
+				let i = i + 1;
+			}
+		}
+		if (dimension=4) {
+			let freeCellCount = 16;
+			let isWin = false;
+			let isDraw  = false;
+			while(i<16) { 
+				let boardArray[i] = 0;
+				let i = i + 1;
+			}
+		}
+		if (dimension=5) {
+			let freeCellCount = 25;
+			let isWin = false;
+			let isDraw  = false;
+			while(i<25) { 
+				let boardArray[i] = 0;
+				let i = i + 1;
+			}
+		}
+		return;
+	}
+	
+	// convert row/col to the array index
+	method int posToIndex(int row, int col, int dim) {
+		let dimension = dim;
+		if (dim = 3) {
+           return ((row*3))+col;
+        }
+		if (dim = 4) {
+           return ((row*4))+col;
+        }
+		if (dim = 5) {
+           return ((row*5))+col;
+        }
+		return 0;
+	}
+	
+	// is the selected row/col free of pieces?
+	method boolean isFree(int row, int col) {
+		if(boardArray[posToIndex(row,col,dimension)]=0) {
+			return true;
+		}else {
+			return false;
+		}
+	}
+	
+	// convert row to pixel y for drawing
+	method int rowToY(int r) {
+		return boardY + (r*cellSize);
+	}
+	
+	method int colToX(int c) {
+		return boardX + (c*cellSize);
+	}
+	
+	method void drawBoardBorders() {
+		var int i, offset;
+    	let offset = thickness / 2;
+    
+		// vertical lines
+		let i = 1;
+		while(i<dimension) {
+            do Screen.drawRectangle(boardX + (i * cellSize) - offset, boardY, boardX + (i * cellSize) + offset, boardY + boardSize);			
+			let i=i+1;
+        }
+        // Draw horizontal lines
+		let i = 1;
+		while(i<dimension) {
+            do Screen.drawRectangle(boardX, boardY + (i * cellSize) - offset, boardX + boardSize, boardY + (i * cellSize) + offset);
+			let i=i+1;
+		}
+		return;
+	}
+	
+	// draw win for rows
+	method void drawRowWin(int r) {
+		var int y,offset;
+		let y = rowToY(r)+(cellSize/2); 
+		let offset = winThickness/2;
+		do Screen.drawRectangle(boardX, y-offset, boardX+boardSize,y+offset);
+		return;
+	}
+	
+	// draw win for columns
+	method void drawColWin(int c) {
+		var int x,offset;
+		let x = colToX(c)+(cellSize/2); 
+		let offset = winThickness/2;
+		do Screen.drawRectangle(x-offset,boardY, x+offset,boardY+boardSize);
+		return;
+	}
+	
+	// draw diagonal win
+	method void drawTopDiagonalWin() {
+		var int i,x,y;
+		let x = boardX;
+		let y = boardY;
+		let i = winThickness-1;
+		while(~(i<0)) {
+			do Screen.drawLine(x+i,y,x+boardSize,y+boardSize-i);
+			do Screen.drawLine(x,y+i,x+boardSize-i,y+boardSize);
+			
+			let i = i-1;
+		}
+		return;
+	}
+
+	method void drawBottomDiagonalWin() {
+		var int i,x,y;
+		let x = boardX;
+		let y = boardY;
+		let i = winThickness-1;
+		while(~(i<0)) {
+			do Screen.drawLine(x,y+boardSize-i,x+boardSize-i,y);
+			do Screen.drawLine(x+i,y+boardSize,x+boardSize,y+i);
+
+			let i = i-1;
+		}
+		return;
+	}
+	
+	method void drawWin() {
+		if(winMode=0) {
+			do drawRowWin(winRow);
+		}
+		if(winMode=1) {
+			do drawColWin(winCol);
+		}
+		if(winMode=2) {
+			do drawTopDiagonalWin();
+		}
+		if(winMode =3) {
+			do drawBottomDiagonalWin();
+		}
+		return;
+	}
+	
+	method boolean isWin() {
+		return isWin;
+	}
+	
+	method boolean isDraw() {
+		return isDraw;
+	}
+	
+	// evaluate board to find draw or win
+	method void evaluateBoard() {
+		var int r,c,b1,b2,b3,b4,b5;
+		let r = 0;
+		let c = 0;
+		let isWin = false;
+		let isDraw = false;
+
+		if (dimension = 3) {
+			// Check for wins in rows
+			while(r<3) {
+				let b1 = boardArray[posToIndex(r,0,3)];
+				let b2 = boardArray[posToIndex(r,1,3)];
+				let b3 = boardArray[posToIndex(r,2,3)];
+				if ((b1=b2) & (b2=b3) & (b1>0)) {
+                	let isWin = true;
+                	let winMode = 0;
+                	let winRow = r;
+                	return;
+            	}			
+				let r = r+1;
+			}
+			// Check for wins in columns
+			while(c<3) { 
+				let b1 = boardArray[posToIndex(0,c,3)];
+				let b2 = boardArray[posToIndex(1,c,3)];
+				let b3 = boardArray[posToIndex(2,c,3)];
+				if ((b1=b2) & (b2=b3) & (b1>0)) {
+                	let isWin = true;
+                	let winMode = 1;
+                	let winCol = c;
+                	return;
+            	}
+				let c = c+1;
+			}
+			// Check main diagonal (top-left to bottom-right)
+			let b1 = boardArray[0];
+    		let b2 = boardArray[4];
+    		let b3 = boardArray[8];
+    		if ((b1=b2) & (b2=b3) & (b1>0)) {
+        		let isWin = true;
+        		let winMode = 2;
+        		return;
+    		}
+			// Check anti-diagonal (top-right to bottom-left)
+			let b1 = boardArray[2];
+    		let b2 = boardArray[4];
+    		let b3 = boardArray[6];
+    		if ((b1=b2) & (b2=b3) & (b1>0)) {
+        		let isWin = true;
+        		let winMode = 3;
+        		return;
+			}	
+
+			if (freeCellCount = 0) {
+				let isDraw = true;
+				return;
+			}
+		}
+		if (dimension = 4) {
+			// Check for wins in rows
+			while(r<4) {
+				let b1 = boardArray[posToIndex(r,0,4)];
+				let b2 = boardArray[posToIndex(r,1,4)];
+				let b3 = boardArray[posToIndex(r,2,4)];
+            	let b4 = boardArray[posToIndex(r,3,4)];
+            	if ((b1=b2) & (b2=b3) & (b3=b4) & (b1>0)) {
+					let isWin = true;
+					let winMode = 0;
+					let winRow = r;
+					return;
+				}
+				let r = r+1;
+			}
+			// Check for wins in columns
+			while(c<4) {
+				let b1 = boardArray[posToIndex(0,c,4)];
+				let b2 = boardArray[posToIndex(1,c,4)];
+				let b3 = boardArray[posToIndex(2,c,4)];
+            	let b4 = boardArray[posToIndex(3,c,4)];
+            	if ((b1=b2) & (b2=b3) & (b3=b4) & (b1>0)) {
+                	let isWin = true;
+                	let winMode = 1;
+                	let winCol = c;
+                	return;
+            	}
+				let c = c+1;
+			}
+			let b1 = boardArray[0];
+    		let b2 = boardArray[5];
+    		let b3 = boardArray[10];
+    		let b4 = boardArray[15];
+    		if ((b1=b2) & (b2=b3) & (b3=b4) & (b1>0)) {
+        		let isWin = true;
+        		let winMode = 2;
+        		return;
+    		}
+			// Check anti-diagonal (top-right to bottom-left)
+			let b1 = boardArray[3];
+    		let b2 = boardArray[6];
+    		let b3 = boardArray[9];
+     		let b4 = boardArray[12];
+    		if ((b1=b2) & (b2=b3) & (b3=b4) & (b1>0)) {
+        		let isWin = true;
+        		let winMode = 3;
+        		return;
+    		}
+
+			if (freeCellCount = 0) {
+				let isDraw = true;
+				return;
+			}
+		}
+		if (dimension = 5) {
+			// Check for wins in rows
+			while(r<5) {
+				let b1 = boardArray[posToIndex(r,0,5)];
+				let b2 = boardArray[posToIndex(r,1,5)];
+				let b3 = boardArray[posToIndex(r,2,5)];
+				let b4 = boardArray[posToIndex(r,3,5)];
+				let b5 = boardArray[posToIndex(r,4,5)];
+				if ((b1=b2) & (b2=b3) & (b3=b4) & (b4=b5) & (b1>0)) {
+					let isWin = true;
+					let winMode = 0;
+					let winRow = r;
+					return;
+				}
+				let r = r+1;
+			}
+			// Check for wins in columns
+			while(c<5) { 
+				let b1 = boardArray[posToIndex(0,c,5)];
+				let b2 = boardArray[posToIndex(1,c,5)];
+				let b3 = boardArray[posToIndex(2,c,5)];
+				let b4 = boardArray[posToIndex(3,c,5)];
+				let b5 = boardArray[posToIndex(4,c,5)];
+				if ((b1=b2) & (b2=b3) & (b3=b4) & (b4=b5) & (b1>0)) {
+					let isWin = true;
+					let winMode = 1;
+					let winCol = c;
+					return;
+				}
+				let c = c+1;	
+			}
+			let b1 = boardArray[0];
+    		let b2 = boardArray[6];
+    		let b3 = boardArray[12];
+    		let b4 = boardArray[18];
+    		let b5 = boardArray[24];
+    		if ((b1=b2) & (b2=b3) & (b3=b4) & (b4=b5) & (b1>0)) {
+        		let isWin = true;
+        		let winMode = 2;
+        		return;
+    		}
+			// Check anti-diagonal (top-right to bottom-left)
+			let b1 = boardArray[4];
+    		let b2 = boardArray[8];
+    		let b3 = boardArray[12];
+    		let b4 = boardArray[16];
+    		let b5 = boardArray[20];
+    		if ((b1=b2) & (b2=b3) & (b3=b4) & (b4=b5) & (b1>0)) {
+        		let isWin = true;
+        		let winMode = 3;
+        		return;
+    		}
+
+			if (freeCellCount = 0) {
+				let isDraw = true;
+				return;
+			}
+		}
+		return;
+	}
+
+	
+	method void drawMove(int row, int col,Piece p) {
+		var int xl,yt;
+		let xl = colToX(col) + ((cellSize-p.getWidth())/2);
+		let yt = rowToY(row) + ((cellSize-p.getHeight())/2);
+		do p.drawPiece(xl,yt);
+		return;
+	}
+	
+	// make a move (doen't draw the move on screen)
+	method void makeMove(int row, int col, Piece p) {
+		let boardArray[posToIndex(row,col,dimension)] = p.getType();
+		let top = top + 1;
+		let moveStack[top * 2] = row;
+    	let moveStack[top * 2 + 1] = col;
+		let freeCellCount = freeCellCount-1;
+		do evaluateBoard();
+		return;
+	}
+	
+	// undo the last move
+    method void takeBackMove() {
+        var int row, col;
+        if (top > 0) {
+            let row = moveStack[top * 2];
+            let col = moveStack[top * 2 + 1];
+            do eraseMove(row, col);
+            let boardArray[posToIndex(row, col, dimension)] = 0;
+            let freeCellCount = freeCellCount + 1;
+            let top = top - 1;
+            let isWin = false;
+            let isDraw = false;
+            do evaluateBoard(); // reevaluate the board after undo
+        }
+        return;
+    }
+
+	// erase move visually (helper function for takeBackMove)
+    method void eraseMove(int row, int col) {
+        do Screen.setColor(false);
+        do Screen.drawRectangle(colToX(col), rowToY(row), colToX(col) + cellSize, rowToY(row) + cellSize);
+        do Screen.setColor(true);
+        do drawBoardBorders(); // redraw board borders
+        return;
+    }
+
+	method boolean hasMoves() {
+        return top > 0;
+    }
+	
+	method int getFreeCellCount() {
+		return freeCellCount;
+	}
+	
+	method Array getAvailableMoves() {
+		var Array moves;
+		var int counter, r, c;
+		let moves = Array.new(freeCellCount*2);
+		let counter = 0;
+		let r = 0;
+		let c = 0;
+		while(r<dimension) {
+			let c = 0;
+			while(c<dimension){
+            	if (boardArray[posToIndex(r, c, 0)] = 0) { 
+                	let moves[counter] = r;
+                	let moves[counter + 1] = c;
+                	let counter = counter + 2;
+            	}
+				let c=c+1;
+        	}
+			let r=r+1;
+		}
+		return moves;
+	}
+}

@@ -1,0 +1,200 @@
+class TicTacToeGame {
+
+	static Board board;
+	static Piece nPiece, cPiece;
+	static int seed;
+	static int dimension; // Added variable to store the board dimension
+
+	function void init() {
+		do InputUtil.init();
+		let nPiece = Piece.new(1);
+		let cPiece = Piece.new(2);
+		return;
+	}
+
+	// 1-continue, 2-draw and 3-win;
+	function int processBoard() {
+		do board.evaluateBoard();
+		if(board.isWin()) {
+			do board.drawWin();
+		}
+
+		if(board.isWin()) {
+			return 3;
+		}
+		if(board.isDraw()) {
+			return 2;
+		}
+
+		return 1;
+	}
+
+
+	// 0-quit, 1-continue, 2-draw, 3-win
+	function int play(int player,Piece p) {
+		var boolean validPlayerInput;
+		var int input;
+		var Array playerMove;
+		let validPlayerInput = false;
+
+		while(~validPlayerInput) { // the player input must be valid!
+			if (dimension = 3) {
+				let input = InputUtil.readInput3("Enter (1 - 9 or 0 to restart and 'u' to undo): ");
+				if(input=0) {
+					return 0; // restart game!
+				}
+				if (input = -1) { // Assuming 'u' returns -1
+            		do board.takeBackMove();
+            		return 1; // continue game
+        		}
+				let playerMove = TicTacToeGame.inputToMove(input);
+				let validPlayerInput = board.isFree(playerMove[0],playerMove[1]);
+			}
+			if (dimension = 4) {
+				let input = InputUtil.readInput4("Enter (1 - 9 & a - g or 0 to restart and 'u' to undo): ");
+				if(input=0) {
+					return 0; // restart game!
+				}
+				if (input = -1) { // Assuming 'u' returns -1
+            		do board.takeBackMove();
+            		return 1; // continue game
+        		}
+				let playerMove = TicTacToeGame.inputToMove(input);
+				let validPlayerInput = board.isFree(playerMove[0],playerMove[1]);
+			}
+			if (dimension = 5) {
+				let input = InputUtil.readInput5("Enter (1 - 9 & a - p or 0 to restart and 'u' to undo): ");
+				if(input=0) {
+					return 0; // restart game!
+				}
+				if (input = -1) { // Assuming 'u' returns -1
+            		do board.takeBackMove();
+            		return 1; // continue game
+        		}
+				let playerMove = TicTacToeGame.inputToMove(input);
+				let validPlayerInput = board.isFree(playerMove[0],playerMove[1]);
+			}
+		}
+
+		do board.makeMove(playerMove[0],playerMove[1],p);
+		do board.drawMove(playerMove[0],playerMove[1],p);
+		do playerMove.dispose();
+		return TicTacToeGame.processBoard();
+	}
+
+	
+    function void startGame() {
+		var int currentPlayer,currentPiece;  // 0 for player 1 and 1 for player 2
+		var boolean gameOver;
+		var int gameStatus;
+
+		do TicTacToeGame.showCredits();
+		do InputUtil.showMessage("Press enter to start the game!");
+		do TicTacToeGame.seedGame();
+
+        let dimension = InputUtil.readInt("Enter board dimension (3 / 4 / 5): ");
+		
+		while(true) {
+			let currentPlayer = InputUtil.waitForZeroOrOne("Enter 0 for player 1(naught), 1 for player 2(cross)): ");
+			if (currentPlayer=0) {
+                let currentPiece = nPiece;
+            } else {
+                let currentPiece = cPiece;
+            }
+			if (dimension = 3) {
+				let board = Board.new(200,60,3); // Initialize the board with dimensions
+			}
+			if (dimension = 4) {
+				let board = Board.new(150,50,4); // Initialize the board with dimensions
+			}
+			if (dimension = 5) {
+				let board = Board.new(150,40,5); // Initialize the board with dimensions
+			}
+			let gameOver = false;
+			while(~gameOver) {
+				let gameStatus = TicTacToeGame.play(currentPlayer,currentPiece);
+
+				if(gameStatus=0) {
+					let gameOver = true;
+				}
+				if(gameStatus=1) {
+					let currentPlayer = TicTacToeGame.getOtherPlayer(currentPlayer);
+					let currentPiece = TicTacToeGame.getOtherPiece(currentPiece);
+				}
+				if(gameStatus=2) {
+					do InputUtil.showMessage("Game drawn! Press enter to restart!");
+					do TicTacToeGame.seedGame();
+					let gameOver = true;
+				}
+				if(gameStatus=3) {
+					if(currentPlayer=0) {
+						do InputUtil.showMessage("Player 1 wins! Press enter to restart!");
+					}else {
+						do InputUtil.showMessage("Player 2 wins! Press enter to restart!");
+					}
+					do TicTacToeGame.seedGame();
+					let gameOver = true;
+				}
+			}
+			do board.dispose();// start with a new board!
+		}
+		return;
+	}
+
+	function int getOtherPiece(Piece p) {
+		if(p = nPiece) {
+			return cPiece;
+		}else {
+			return nPiece;
+		}
+	}
+
+	function int getOtherPlayer(int p) {
+		if(p=0) {
+			return 1;
+		}else {
+			return 0;
+		}
+	}
+
+	function Array inputToMove(int input) {
+    	var Array moves;
+    	let moves = Array.new(2);
+		if (dimension=3) {
+    		let moves[0] = (input - 1)/3; // Calculate row based on dimension
+    		let moves[1] = (input - 1)-(3 * moves[0]); // Calculate column based on dimension
+		}
+		if (dimension=4) {
+    		let moves[0] = (input - 1)/4; // Calculate row based on dimension
+    		let moves[1] = (input - 1)-(4 * moves[0]); // Calculate column based on dimension
+		}
+		if (dimension=5) {
+    		let moves[0] = (input - 1)/5; // Calculate row based on dimension
+    		let moves[1] = (input - 1)-(5 * moves[0]); // Calculate column based on dimension
+    	}
+    	return moves;
+	}
+
+	function void seedGame() {
+		var int seedCounter;
+		var boolean enterPressed;
+		let enterPressed = false;
+		let seedCounter = 1;
+		while(~enterPressed) {
+			if(Keyboard.keyPressed()=128) {
+				let enterPressed = true;
+			}
+			let seedCounter = seedCounter+1;
+			if(seedCounter > 25444) {
+				let seedCounter = 1;
+			}
+		}
+		return;
+	}
+
+	function void showCredits() {
+		do Output.moveCursor(22,14);
+		do Output.printString("TicTacToeGame in Jack Language by C-13");
+		return;
+	}
+}
